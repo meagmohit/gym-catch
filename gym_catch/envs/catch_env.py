@@ -36,7 +36,7 @@ class CatchEnv(gym.Env):
     def step(self, action):
         assert self.action_space.contains(action)   # makes sure the action is valid
         # Updating the state
-        [ball_row, ball_col, bar_col] = state
+        [ball_row, ball_col, bar_col] = self.state
         bar_col = min(max(0, bar_col + action), screen_width - bar_width)
         ball_row = ball_row + 1
         self.state = [ball_row, ball_col, bar_col]
@@ -51,17 +51,16 @@ class CatchEnv(gym.Env):
         done = False
         if (ball_row == screen_height -1):
             done = True
-        return self.state, reward, done
+        return self._get_observation(), reward, done, None
 
     def reset(self):
         ball_row = 0
         ball_col = np.random.randint(screen_width)    # picks b/w 0 to screen_width-1 (both inclusive)
         bar_col = np.random.randint(screen_width - bar_width)
         self.state = [ball_row, ball_col, bar_col]
-        return self.state
+        return self._get_observation()
 
-    def render(self, mode='human', close=False):
-        #img = self._get_image()
+    def _get_observation(self):
         img = 255*np.ones(self.atari_dims, dtype=np.uint8) # White screen
         pixel_in_row = int(atari_height/screen_height)
         pixel_in_col = int(atari_width/screen_width)
@@ -69,6 +68,10 @@ class CatchEnv(gym.Env):
         bar_row = screen_height-1
         img[ball_row*pixel_in_row:(ball_row+1)*pixel_in_row, ball_col*pixel_in_col:(ball_col+1)*pixel_in_col, 1:3] = 0    # Ball in Red
         img[bar_row*pixel_in_row:(bar_row+1)*pixel_in_row, bar_col*pixel_in_col:(bar_col+1+bar_width)*pixel_in_col, 0:2] = 0    # Bar in Blue
+        return img
+
+    def render(self, mode='human', close=False):
+        img = self._get_observation()
         if mode == 'rgb_array':
             return img
         #return np.array(...) # return RGB frame suitable for video
