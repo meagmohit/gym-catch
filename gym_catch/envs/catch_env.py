@@ -37,7 +37,7 @@ class CatchEnv(gym.Env):
         assert self.action_space.contains(action)   # makes sure the action is valid
         # Updating the state
         [ball_row, ball_col, bar_col] = self.state
-        bar_col = min(max(0, bar_col + action), screen_width - bar_width)
+        bar_col = min(max(0, bar_col + action - 1), screen_width - bar_width)
         ball_row = ball_row + 1
         self.state = [ball_row, ball_col, bar_col]
         # Generating the rewards
@@ -51,14 +51,14 @@ class CatchEnv(gym.Env):
         done = False
         if (ball_row == screen_height -1):
             done = True
-        return self._get_observation(), reward, done, None
+        return self.state, reward, done, None
 
     def reset(self):
         ball_row = 0
         ball_col = np.random.randint(screen_width)    # picks b/w 0 to screen_width-1 (both inclusive)
         bar_col = np.random.randint(screen_width - bar_width)
         self.state = [ball_row, ball_col, bar_col]
-        return self._get_observation()
+        return self.state#self._get_observation()
 
     def _get_observation(self):
         img = 255*np.ones(self.atari_dims, dtype=np.uint8) # White screen
@@ -80,8 +80,8 @@ class CatchEnv(gym.Env):
             from gym.envs.classic_control import rendering
             if self.viewer is None:
                 self.viewer = rendering.SimpleImageViewer()
-                self.viewer.imshow(img)
-                return self.viewer.isopen
+            self.viewer.imshow(img)
+            return self.viewer.isopen
             #plt.imshow(img)
             #plt.show()
         else:
