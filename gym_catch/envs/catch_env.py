@@ -21,6 +21,13 @@ action_stay = 1
 action_right = 2
 
 class CatchEnv(gym.Env):
+
+    class ale(gym.Env):
+        def __init__(self):
+            self.lives = None
+
+        def lives():
+            return 1
     #metadata = {'render.modes': ['human']}
     metadata = {'render.modes': ['human', 'rgb_array']}
 
@@ -51,14 +58,16 @@ class CatchEnv(gym.Env):
         done = False
         if (ball_row == screen_height -1):
             done = True
-        return self.state, reward, done, None
+        #return self.state, reward, done, None
+        return self._get_observation(), reward, done, None
 
     def reset(self):
         ball_row = 0
         ball_col = np.random.randint(screen_width)    # picks b/w 0 to screen_width-1 (both inclusive)
         bar_col = np.random.randint(screen_width - bar_width)
         self.state = [ball_row, ball_col, bar_col]
-        return self.state#self._get_observation()
+        #return self.state#
+        return self._get_observation()
 
     def _get_observation(self):
         img = 255*np.ones(self.atari_dims, dtype=np.uint8) # White screen
