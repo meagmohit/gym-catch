@@ -24,9 +24,10 @@ class CatchEnv(gym.Env):
 
     class ale(gym.Env):
         def __init__(self):
-            self.lives = None
+            self.total_lives = None
 
-        def lives():
+	@classmethod
+        def lives(cls):
             return 1
     #metadata = {'render.modes': ['human']}
     metadata = {'render.modes': ['human', 'rgb_array']}
