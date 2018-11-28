@@ -1,2 +1,4 @@
 *.pyc
 *.egg
+
+gym_catch.egg-info/
