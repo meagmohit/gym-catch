@@ -15,7 +15,7 @@ python setup.py install
 ```python
 import gym
 import gym_catch
-env = gym.make('catch-v0')
+env = gym.make('catch-v0') # The other option is 'CatchNoFrameskip-v4'
 env.render()
 ```
 
