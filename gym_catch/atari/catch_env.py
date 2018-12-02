@@ -5,6 +5,12 @@ from gym.utils import seeding
 import numpy as np
 import matplotlib.pyplot as plt
 
+# Libraires for sending external stimulations over TCP port
+import sys
+import socket
+from time import time, sleep
+
+
 
 class ALEInterface(object):
     def __init__(self):
@@ -17,7 +23,7 @@ class CatchEnv(gym.Env):
 
     metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second' : 50}
 
-    def __init__(self, grid_size=(105,20), bar_size=5, total_balls=10):
+    def __init__(self, grid_size=(105,20), bar_size=5, total_balls=10, tcp_tagging=False, tcp_port=15361):
         
         # Atari-platform related parameters
         self.atari_dims = (210,160,3)		# Specifies standard atari resolution
@@ -39,6 +45,14 @@ class CatchEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=255, shape=(self.atari_height, self.atari_width, 3), dtype=np.uint8)
         self.viewer = None
         
+        # Code for TCP Tagging
+        self.tcp_tagging = tcp_tagging
+        if (self.cp_tagging):
+            self.host = 127.0.0.1
+            self.port = tcp_port
+            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s.connect((self.host, self.port))
+
         # Methods
         self.ale = ALEInterface()
         self.seed()
@@ -72,7 +86,14 @@ class CatchEnv(gym.Env):
         done = False
         if (self.current_balls>=self.total_balls):
             done = True
-        #return self.state, reward, done, None
+
+        # Sending the external stimulation over TCP port
+        if self.tcp_tagging:
+            padding=[0]*8
+            event_id = [ball_row, ball_col, bar_col, current_action, 0, 0, 0, 0]
+            timestamp=list(self.to_byte(int(time()*1000), 8))
+            self.s.sendall(bytearray(padding+event_id+timestamp))
+        
         return self._get_observation(), reward, done, {"ale.lives": self.ale.lives()}
 
     def reset(self):
@@ -115,6 +136,8 @@ class CatchEnv(gym.Env):
         if self.viewer is not None:
             self.viewer.close()
             self.viewer = None
+        if self.tcp_tagging:
+            self.s.close()
 
     def get_action_meanings(self):
         return [ACTION_MEANING[i] for i in self._action_set]
@@ -130,6 +153,14 @@ class CatchEnv(gym.Env):
         # 2**31.
         seed2 = seeding.hash_seed(seed1 + 1) % 2**31
         return [seed1, seed2]
+
+    # A function for TCP_tagging in openvibe
+    # transform a value into an array of byte values in little-endian order.
+    def to_byte(value, length):
+        for x in range(length):
+            yield value%256
+            value//=256
+
 
     def get_keys_to_action(self):
         KEYWORD_TO_KEY = {
