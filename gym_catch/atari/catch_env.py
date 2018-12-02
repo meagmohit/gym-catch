@@ -5,92 +5,93 @@ from gym.utils import seeding
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Atari pixel configurations
-atari_height = 210
-atari_width = 160
-atari_channels = 3
-
-# Configuration
-screen_height = 10
-screen_width = 10
-bar_width = 2
-
-# Actions
-action_left = 0
-action_stay = 1
-action_right = 2
-
-score_max = 20
 
 class ALEInterface(object):
     def __init__(self):
-      self.xyz = 0
+      self.lives_left = 0
 
     def lives(self):
-      return 0
+      return 0 #self.lives_left
 
 class CatchEnv(gym.Env):
 
-    #class ale(gym.Env):
-    #    def __init__(self):
-    #        self.total_lives = None
-    #
-    #	@classmethod
-    #    def lives(cls):
-    #        return 0
-    #metadata = {'render.modes': ['human']}
-    metadata = {'render.modes': ['human', 'rgb_array']}
+    metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second' : 50}
 
-    def __init__(self):
+    def __init__(self, grid_size=(105,20), bar_size=5, total_balls=10):
+        
+        # Atari-platform related parameters
+        self.atari_dims = (210,160,3)		# Specifies standard atari resolution
+        (self.atari_height, self.atari_width, self.atari_channels) = self.atari_dims
+
+        #  Game-related paramteres
+        self.screen_height = grid_size[0]
+        self.screen_width = grid_size[1]
+        self.screen_dims = [self.screen_height, self.screen_width]
+        self.bar_width = bar_size
+        self.actions = [0, 1, -1]
+        self.score = 0.0
+        self.total_balls = total_balls
+        self.current_balls = 0
+        
+        # Gym-related variables [must be defined]
         self._action_set = np.array([0,3,4],dtype=np.int32)
         self.action_space = spaces.Discrete(3)
-        self.observation_space = spaces.Box(low=0, high=255, shape=(atari_height,atari_width,3), dtype=np.uint8)
-        self.screen_dims = [screen_height, screen_width] #Black and White
-        self.atari_dims = (atari_height, atari_width, atari_channels)
+        self.observation_space = spaces.Box(low=0, high=255, shape=(self.atari_height, self.atari_width, 3), dtype=np.uint8)
         self.viewer = None
-        self.score = 0.0
+        
+        # Methods
         self.ale = ALEInterface()
+        self.seed()
         self.reset()
 
     # Act by taking an action # return observation (object), reward (float), done (boolean) and info (dict)
     def step(self, action):
         assert self.action_space.contains(action)   # makes sure the action is valid
-        # Updating the state
+        
+        # Updating the state, state is hidden from observation
         [ball_row, ball_col, bar_col] = self.state
-        bar_col = min(max(0, bar_col + action - 1), screen_width - bar_width)
+        current_action = self.actions[action]
+        bar_col = min(max(0, bar_col + current_action), self.screen_width - self.bar_width)
         ball_row = ball_row + 1
         self.state = [ball_row, ball_col, bar_col]
+        
         # Generating the rewards
-        #reward = 0.0
-        if (ball_row == screen_height -1):
-            if (ball_col >= bar_col) and (ball_col <= bar_col+bar_width):
-                self.score = self.score + 1.0
+        reward = 0.0
+        if (ball_row == self.screen_height -1):
+            if (ball_col >= bar_col) and (ball_col <= bar_col+self.bar_width):
+                reward = 1.0
             else:
-                self.score = self.score - 1.0
-            self.reset()
+                reward = -1.0
+            self.score = self.score + reward
+            ball_row = 0
+            ball_col = np.random.randint(self.screen_width)
+            self.state = [ball_row, ball_col, bar_col]
+            self.current_balls = self.current_balls + 1
+        
         # Generate the done (boolean)
         done = False
-        if (abs(self.score)==score_max):
+        if (self.current_balls>=self.total_balls):
             done = True
         #return self.state, reward, done, None
-        return self._get_observation(), self.score, done, {"ale.lives": 0}
+        return self._get_observation(), reward, done, {"ale.lives": self.ale.lives()}
 
     def reset(self):
+        self.score = 0.0
+        self.current_balls = 0
         ball_row = 0
-        ball_col = np.random.randint(screen_width)    # picks b/w 0 to screen_width-1 (both inclusive)
-        bar_col = np.random.randint(screen_width - bar_width)
+        ball_col = np.random.randint(self.screen_width)    # picks b/w 0 to screen_width-1 (both inclusive)
+        bar_col = np.random.randint(self.screen_width - self.bar_width)
         self.state = [ball_row, ball_col, bar_col]
-        #return self.state#
         return self._get_observation()
 
     def _get_observation(self):
-        img = 255*np.ones(self.atari_dims, dtype=np.uint8) # White screen
-        pixel_in_row = int(atari_height/screen_height)
-        pixel_in_col = int(atari_width/screen_width)
+        img = np.zeros(self.atari_dims, dtype=np.uint8) # Black screen
+        pixel_in_row = int(self.atari_height/self.screen_height)
+        pixel_in_col = int(self.atari_width/self.screen_width)
         [ball_row, ball_col, bar_col] = self.state
-        bar_row = screen_height-1
-        img[ball_row*pixel_in_row:(ball_row+1)*pixel_in_row, ball_col*pixel_in_col:(ball_col+1)*pixel_in_col, 1:3] = 0    # Ball in Red
-        img[bar_row*pixel_in_row:(bar_row+1)*pixel_in_row, bar_col*pixel_in_col:(bar_col+1+bar_width)*pixel_in_col, 0:2] = 0    # Bar in Blue
+        bar_row = self.screen_height-1
+        img[ball_row*pixel_in_row:(ball_row+1)*pixel_in_row, ball_col*pixel_in_col:(ball_col+1)*pixel_in_col, 0:3] = 255    # Ball in white
+        img[bar_row*pixel_in_row:(bar_row+1)*pixel_in_row, bar_col*pixel_in_col:(bar_col+self.bar_width)*pixel_in_col, 0:3] = 255    # Bar in while
         return img
 
     def render(self, mode='human', close=False):
@@ -117,6 +118,10 @@ class CatchEnv(gym.Env):
 
     def get_action_meanings(self):
         return [ACTION_MEANING[i] for i in self._action_set]
+ 
+    @property
+    def _n_actions(self):
+        return len(self._action_set)
 
     def seed(self, seed=None):
         self.np_random, seed1 = seeding.np_random(seed)
@@ -124,10 +129,30 @@ class CatchEnv(gym.Env):
         # checked as an int elsewhere, so we need to keep it below
         # 2**31.
         seed2 = seeding.hash_seed(seed1 + 1) % 2**31
-        # Empirically, we need to seed before loading the ROM.
-        #self.ale.setInt(b'random_seed', seed2)
-        #self.ale.loadROM(self.game_path)
         return [seed1, seed2]
+
+    def get_keys_to_action(self):
+        KEYWORD_TO_KEY = {
+            'UP':      ord('w'),
+            'DOWN':    ord('s'),
+            'LEFT':    ord('a'),
+            'RIGHT':   ord('d'),
+            'FIRE':    ord(' '),
+        }
+
+        keys_to_action = {}
+
+        for action_id, action_meaning in enumerate(self.get_action_meanings()):
+            keys = []
+            for keyword, key in KEYWORD_TO_KEY.items():
+                if keyword in action_meaning:
+                    keys.append(key)
+            keys = tuple(sorted(keys))
+
+            assert keys not in keys_to_action
+            keys_to_action[keys] = action_id
+
+        return keys_to_action
 
 
 ACTION_MEANING = {
