@@ -60,6 +60,8 @@ class CatchEnv(gym.Env):
 
     # Act by taking an action # return observation (object), reward (float), done (boolean) and info (dict)
     def step(self, action):
+        if isinstance(action, np.ndarray):
+          action = action[0]
         assert self.action_space.contains(action)   # makes sure the action is valid
         
         # Updating the state, state is hidden from observation
