@@ -47,8 +47,8 @@ class CatchEnv(gym.Env):
         
         # Code for TCP Tagging
         self.tcp_tagging = tcp_tagging
-        if (self.cp_tagging):
-            self.host = 127.0.0.1
+        if (self.tcp_tagging):
+            self.host = '127.0.0.1'
             self.port = tcp_port
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.s.connect((self.host, self.port))
@@ -90,7 +90,7 @@ class CatchEnv(gym.Env):
         # Sending the external stimulation over TCP port
         if self.tcp_tagging:
             padding=[0]*8
-            event_id = [ball_row, ball_col, bar_col, current_action, 0, 0, 0, 0]
+            event_id = [ball_row, ball_col, bar_col, action, 0, 0, 0, 0]
             timestamp=list(self.to_byte(int(time()*1000), 8))
             self.s.sendall(bytearray(padding+event_id+timestamp))
         
@@ -156,7 +156,7 @@ class CatchEnv(gym.Env):
 
     # A function for TCP_tagging in openvibe
     # transform a value into an array of byte values in little-endian order.
-    def to_byte(value, length):
+    def to_byte(self, value, length):
         for x in range(length):
             yield value%256
             value//=256
