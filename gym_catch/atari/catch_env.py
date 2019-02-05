@@ -24,7 +24,7 @@ class CatchEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second' : 50}
 
     def __init__(self, grid_size=(105,20), bar_size=5, total_balls=10, tcp_tagging=False, tcp_port=15361):
-        
+
         # Atari-platform related parameters
         self.atari_dims = (210,160,3)		# Specifies standard atari resolution
         (self.atari_height, self.atari_width, self.atari_channels) = self.atari_dims
@@ -38,13 +38,13 @@ class CatchEnv(gym.Env):
         self.score = 0.0
         self.total_balls = total_balls
         self.current_balls = 0
-        
+
         # Gym-related variables [must be defined]
         self._action_set = np.array([0,3,4],dtype=np.int32)
         self.action_space = spaces.Discrete(3)
         self.observation_space = spaces.Box(low=0, high=255, shape=(self.atari_height, self.atari_width, 3), dtype=np.uint8)
         self.viewer = None
-        
+
         # Code for TCP Tagging
         self.tcp_tagging = tcp_tagging
         if (self.tcp_tagging):
@@ -63,14 +63,18 @@ class CatchEnv(gym.Env):
         if isinstance(action, np.ndarray):
           action = action[0]
         assert self.action_space.contains(action)   # makes sure the action is valid
-        
+
         # Updating the state, state is hidden from observation
         [ball_row, ball_col, bar_col] = self.state
         current_action = self.actions[action]
         bar_col = min(max(0, bar_col + current_action), self.screen_width - self.bar_width)
         ball_row = ball_row + 1
+        if (ball_row == self.screen_height):
+            ball_row = 0
+            ball_col = np.random.randint(self.screen_width)
+            self.current_balls = self.current_balls + 1
         self.state = [ball_row, ball_col, bar_col]
-        
+
         # Generating the rewards
         reward = 0.0
         if (ball_row == self.screen_height -1):
@@ -79,11 +83,7 @@ class CatchEnv(gym.Env):
             else:
                 reward = -1.0
             self.score = self.score + reward
-            ball_row = 0
-            ball_col = np.random.randint(self.screen_width)
-            self.state = [ball_row, ball_col, bar_col]
-            self.current_balls = self.current_balls + 1
-        
+
         # Generate the done (boolean)
         done = False
         if (self.current_balls>=self.total_balls):
@@ -92,11 +92,11 @@ class CatchEnv(gym.Env):
         # Sending the external stimulation over TCP port
         if self.tcp_tagging:
             padding=[0]*8
-            event_id = [ball_row, ball_col, bar_col, action, 0, 0, 0, 0]
+            event_id = [0, 0, 0, 0, ball_row, ball_col, bar_col, action]
             timestamp=list(self.to_byte(int(time()*1000), 8))
             self.s.sendall(bytearray(padding+event_id+timestamp))
-        
-        return self._get_observation(), reward, done, {"ale.lives": self.ale.lives()}
+
+        return self._get_observation(), reward, done, {"ale.lives": self.ale.lives(), "internal_state": self.state}
 
     def reset(self):
         self.score = 0.0
@@ -113,8 +113,27 @@ class CatchEnv(gym.Env):
         pixel_in_col = int(self.atari_width/self.screen_width)
         [ball_row, ball_col, bar_col] = self.state
         bar_row = self.screen_height-1
-        img[ball_row*pixel_in_row:(ball_row+1)*pixel_in_row, ball_col*pixel_in_col:(ball_col+1)*pixel_in_col, 0:3] = 255    # Ball in white
-        img[bar_row*pixel_in_row:(bar_row+1)*pixel_in_row, bar_col*pixel_in_col:(bar_col+self.bar_width)*pixel_in_col, 0:3] = 255    # Bar in while
+
+        #Draw Basket
+        basket_offset_x = pixel_in_row/4
+        basket_offset_y = pixel_in_col/6
+        img[bar_row*pixel_in_row:(bar_row+1)*pixel_in_row, bar_col*pixel_in_col:(bar_col+self.bar_width)*pixel_in_col, 1] = 255    # Bar in while
+        img[(bar_row*pixel_in_row):((bar_row+1)*pixel_in_row- basket_offset_x), (bar_col*pixel_in_col+basket_offset_y):(bar_col+self.bar_width)*pixel_in_col - basket_offset_y, 0:3] = 0
+
+
+        #Draw Ball
+        x_c = ball_row*pixel_in_row + pixel_in_row/2
+        y_c = ball_col* pixel_in_col + pixel_in_col/2
+        r = min(pixel_in_row,pixel_in_col)/3
+        for x in range(r):
+            for y in range(r):
+                if x*x + y*y < r*r:
+                    img[x_c+x,y_c+y,1:3]=255
+                    img[x_c+x,y_c-y,1:3]=255
+                    img[x_c-x,y_c+y,1:3]=255
+                    img[x_c-x,y_c-y,1:3]=255
+        #img[ball_row*pixel_in_row:(ball_row+1)*pixel_in_row, ball_col*pixel_in_col:(ball_col+1)*pixel_in_col, 0:3] = 255    # Ball in white
+
         return img
 
     def render(self, mode='human', close=False):
@@ -126,8 +145,8 @@ class CatchEnv(gym.Env):
             #... # pop up a window and render
             from gym.envs.classic_control import rendering
             if self.viewer is None:
-                self.viewer = rendering.SimpleImageViewer()
-            self.viewer.imshow(img)
+                self.viewer = rendering.SimpleImageViewer(maxwidth=1920)
+            self.viewer.imshow(np.repeat(np.repeat(img, 4, axis=0), 4, axis=1))
             return self.viewer.isopen
             #plt.imshow(img)
             #plt.show()
@@ -143,7 +162,7 @@ class CatchEnv(gym.Env):
 
     def get_action_meanings(self):
         return [ACTION_MEANING[i] for i in self._action_set]
- 
+
     @property
     def _n_actions(self):
         return len(self._action_set)
