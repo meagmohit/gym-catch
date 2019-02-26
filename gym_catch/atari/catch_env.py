@@ -10,8 +10,6 @@ import sys
 import socket
 from time import time, sleep
 
-
-
 class ALEInterface(object):
     def __init__(self):
       self.lives_left = 0
@@ -78,7 +76,7 @@ class CatchEnv(gym.Env):
         # Generating the rewards
         reward = 0.0
         if (ball_row == self.screen_height -1):
-            if (ball_col >= bar_col) and (ball_col <= bar_col+self.bar_width):
+            if (ball_col >= bar_col) and (ball_col < bar_col+self.bar_width):
                 reward = 1.0
             else:
                 reward = -1.0
