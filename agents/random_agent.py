@@ -7,12 +7,13 @@ env = gym.make('CatchNoFrameskip-v1')
 env.reset()
 action_idx = [0, 1, 2]
 actions = [0, 1, -1]	# 0 means stay, 1 mean right i.e. 1, 2 means -1 i.e. left
-p_err = 0.2
+p_err = 0.5
+speed = 1.5 # in seconds
 for _ in range(1):
 	done = False
 	env.reset()
 	while not done:
-		state = env.unwrapped.state
+		state = env.unwrapped._state
 		[ball_row, ball_col, bar_col] = state
 		if ball_col == bar_col:	# correct action is stay
 			action = np.random.choice(action_idx, p=[1-p_err, p_err/2.0, p_err/2.0])
@@ -23,7 +24,7 @@ for _ in range(1):
 		(obs, reward, done, info) =  env.step(action) # take a random action
 		print actions[action], info['internal_state'], reward
 		env.render()
-		time.sleep(1.0)
+		time.sleep(speed)
 
-print env.unwrapped.score
+print env.unwrapped._score
 env.close()

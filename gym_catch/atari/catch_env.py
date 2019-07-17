@@ -33,9 +33,10 @@ class CatchEnv(gym.Env):
         self.screen_dims = [self.screen_height, self.screen_width]
         self.bar_width = bar_size
         self.actions = [0, 1, -1]
-        self.score = 0.0
-        self.total_balls = total_balls
-        self.current_balls = 0
+        self._score = 0.0
+        self._state = [-1, -1, -1]
+        self._total_balls = total_balls
+        self._current_balls = 0
 
         # Gym-related variables [must be defined]
         self._action_set = np.array([0,3,4],dtype=np.int32)
@@ -63,7 +64,11 @@ class CatchEnv(gym.Env):
         assert self.action_space.contains(action)   # makes sure the action is valid
 
         # Updating the state, state is hidden from observation
-        [ball_row, ball_col, bar_col] = self.state
+        [ball_row, ball_col, bar_col] = self._state
+        prev_ball_row = ball_row
+        prev_ball_col = ball_col
+        prev_bar_col = bar_col
+
         current_action = self.actions[action]
         bar_col = min(max(0, bar_col + current_action), self.screen_width - self.bar_width)
         ball_row = ball_row + 1
@@ -71,7 +76,7 @@ class CatchEnv(gym.Env):
             ball_row = 0
             ball_col = np.random.randint(self.screen_width)
             self.current_balls = self.current_balls + 1
-        self.state = [ball_row, ball_col, bar_col]
+        self._state = [ball_row, ball_col, bar_col]
 
         # Generating the rewards
         reward = 0.0
@@ -80,36 +85,36 @@ class CatchEnv(gym.Env):
                 reward = 1.0
             else:
                 reward = -1.0
-            self.score = self.score + reward
+            self._score = self._score + reward
 
         # Generate the done (boolean)
         done = False
-        if (self.current_balls>=self.total_balls):
+        if (self.current_balls>=self._total_balls):
             done = True
 
         # Sending the external stimulation over TCP port
         if self.tcp_tagging:
             padding=[0]*8
-            event_id = [0, 0, 0, 0, ball_row, ball_col, bar_col, action]
+            event_id = [0, ball_row, ball_col, bar_col, prev_ball_row, prev_ball_col, prev_bar_col, action]
             timestamp=list(self.to_byte(int(time()*1000), 8))
             self.s.sendall(bytearray(padding+event_id+timestamp))
 
-        return self._get_observation(), reward, done, {"ale.lives": self.ale.lives(), "internal_state": self.state}
+        return self._get_observation(), reward, done, {"ale.lives": self.ale.lives(), "internal_state": self._state}
 
     def reset(self):
-        self.score = 0.0
+        self._score = 0.0
         self.current_balls = 0
         ball_row = 0
         ball_col = np.random.randint(self.screen_width)    # picks b/w 0 to screen_width-1 (both inclusive)
         bar_col = np.random.randint(self.screen_width - self.bar_width)
-        self.state = [ball_row, ball_col, bar_col]
+        self._state = [ball_row, ball_col, bar_col]
         return self._get_observation()
 
     def _get_observation(self):
         img = np.zeros(self.atari_dims, dtype=np.uint8) # Black screen
         pixel_in_row = int(self.atari_height/self.screen_height)
         pixel_in_col = int(self.atari_width/self.screen_width)
-        [ball_row, ball_col, bar_col] = self.state
+        [ball_row, ball_col, bar_col] = self._state
         bar_row = self.screen_height-1
 
         #Draw Basket
