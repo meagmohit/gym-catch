@@ -7,11 +7,14 @@ env = gym.make('CatchNoFrameskip-v3')
 env.reset()
 action_idx = [0, 1, 2]
 actions = [0, 1, -1]	# 0 means stay, 1 mean right i.e. 1, 2 means -1 i.e. left
-p_err = 0.5
-speed = 1.5 # in seconds
+p_err = 0.2
+speed = 1.0 # in seconds
 for _ in range(1):
 	done = False
+
 	env.reset()
+	env.render()
+	time.sleep(10)
 	while not done:
 		state = env.unwrapped._state
 		[ball_row, ball_col, bar_col] = state
