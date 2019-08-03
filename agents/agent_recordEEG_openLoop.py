@@ -11,7 +11,6 @@ p_err = 0.2
 speed = 1.0 # in seconds
 for _ in range(1):
 	done = False
-
 	env.reset()
 	env.render()
 	time.sleep(10)
@@ -27,7 +26,8 @@ for _ in range(1):
 		(obs, reward, done, info) =  env.step(action) # take a random action
 		print actions[action], info['internal_state'], reward
 		env.render()
-		time.sleep(speed)
+		random_time = np.random.uniform(0,0.5)
+		time.sleep(speed + random_time)
 
 print env.unwrapped._score
 env.close()
